@@ -1,0 +1,12 @@
+.cursor/
+.vscode/
+# Python venv
+forecaster/
+
+# Project built filesystem
+fs.bin
+
+# Platformio build files
+.pio/
+
+.env

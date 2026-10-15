@@ -1,0 +1,84 @@
+# Cuts a release and attaches the forecaster firmware and LittleFS binary to it.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true          # a release must not ship half its targets
+      matrix:
+        environment: [esp12f]  # Match your PlatformIO environment name (e.g., nodemcuv2, esp12e, etc.)
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build Firmware and Filesystem (${{ matrix.environment }})
+        run: |
+          pio run -e ${{ matrix.environment }}
+          pio run -e ${{ matrix.environment }} -t buildfs
+
+      - name: Bundle the flashable set
+        run: |
+          env_dir=".pio/build/${{ matrix.environment }}"
+          test -f "$env_dir/firmware.bin" || { echo "Firmware binary missing"; exit 1; }
+          test -f "$env_dir/littlefs.bin" || { echo "Filesystem binary missing"; exit 1; }
+          
+          out="forecaster-firmware-${{ matrix.environment }}"
+          mkdir -p "$out"
+          
+          # Copy binaries and helper script info
+          cp "$env_dir/firmware.bin" "$out/"
+          cp "$env_dir/littlefs.bin" "$out/"
+          
+          # Optional: create a simple flash instructions readme for releases
+          echo "Flash command:" > "$out/README.txt"
+          echo "esptool.py --chip esp8266 write_flash 0x00000 firmware.bin 0x100000 littlefs.bin" >> "$out/README.txt"
+
+          tar czf "$out.tar.gz" "$out"
+          echo "--- Packed Archive Content ---" && tar tzf "$out.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forecaster-firmware-${{ matrix.environment }}-tgz
+          path: forecaster-firmware-${{ matrix.environment }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach the firmware to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          ls -l dist/
+          gh release upload "$TAG" dist/*.tar.gz --clobber

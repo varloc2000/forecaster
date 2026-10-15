@@ -1,0 +1,8 @@
+<div id="state">
+  {{weatherSection}}
+  <div class="buttons">
+    <button type="button" class="{{lightClass}}" hx-post="/mode" hx-vals='{"set":"LIGHT"}' hx-swap="none">LIGHT</button>
+    <button type="button" class="{{ambientClass}}" hx-post="/mode" hx-vals='{"set":"AMBIENT"}' hx-swap="none">AMBIENT</button>
+    <button type="button" class="{{forecastClass}}" hx-post="/mode" hx-vals='{"set":"FORECAST"}' hx-swap="none">FORECAST</button>
+  </div>
+</div>
