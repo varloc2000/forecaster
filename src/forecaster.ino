@@ -95,8 +95,9 @@ String runtimeOwmApiKey = OWM_API_KEY_DEFAULT;
 bool   wifiManagerDone  = false;
 
 // Deferred restart (let async HTTP response flush before ESP.restart())
-bool     restartPending = false;
-uint32_t restartAtMs    = 0;
+bool     restartPending    = false;
+bool     wifiResetPending  = false;
+uint32_t restartAtMs       = 0;
 
 // Testing mode variables
 uint32_t        testingModeTimer  = 0;
@@ -193,61 +194,38 @@ void clearApiKeyConfig() {
 
 // ── Web API (JSON only) ──────────────────────────────────────────────────────
 
-static const char* activeButtonClass(bool isActive) {
-    return isActive ? "active" : "";
-}
-
 static const char* rainLevelLabel() {
     if (rainLevel == RAIN_HEAVY)    return "Heavy rain";
     if (rainLevel == RAIN_MODERATE) return "Moderate rain";
     return "Light rain";
 }
 
-static String buildRainSuffix() {
-    if (weatherCond != WC_RAIN && weatherCond != WC_RAIN_WINDY && weatherCond != WC_STORMY) {
-        return "";
-    }
-    String suffix = F(" · ");
-    suffix += rainLevelLabel();
-    return suffix;
+static bool weatherHasRain() {
+    return weatherCond == WC_RAIN || weatherCond == WC_RAIN_WINDY || weatherCond == WC_STORMY;
 }
 
 static String buildStateJson() {
-    const char* cur = modeToString(currentMode);
-    const bool showWeather = (weatherData.valid);
+    DynamicJsonDocument doc(512);
+    char tempBuf[8];
+    char windBuf[8];
+    doc["mode"] = modeToString(currentMode);
 
-    String json;
-    json.reserve(300);
-    json += F("{\"mode\":\"");
-    json += cur;
-    json += F("\",\"connectingClass\":\"");
-    json += activeButtonClass(strcmp(cur, "CONNECTING") == 0);
-    json += F("\",\"ambientClass\":\"");
-    json += activeButtonClass(strcmp(cur, "AMBIENT") == 0);
-    json += F("\",\"forecastClass\":\"");
-    json += activeButtonClass(strcmp(cur, "FORECAST") == 0);
-    json += F("\",\"testingClass\":\"");
-    json += activeButtonClass(strcmp(cur, "TESTING") == 0);
-    json += F("\",\"showWeather\":");
-    json += showWeather ? F("true") : F("false");
-
-    if (showWeather) {
-        json += F(",\"condition\":\"");
-        json += conditionToString(weatherCond);
-        json += F("\",\"temperature\":\"");
-        json += String(weatherData.temperature, 1);
-        json += F("\",\"wind\":\"");
-        json += String(weatherData.windSpeed, 1);
-        json += F("\",\"windDeg\":\"");
-        json += String(weatherData.windDeg);
-        json += F("\",\"windDir\":\"");
-        json += windDirLabel(weatherData.windDeg);
-        json += F("\",\"rainSuffix\":\"");
-        json += buildRainSuffix();
-        json += F("\"");
+    if (weatherData.valid) {
+        dtostrf(weatherData.temperature, 0, 1, tempBuf);
+        dtostrf(weatherData.windSpeed, 0, 1, windBuf);
+        JsonObject weather = doc.createNestedObject("weather");
+        weather["condition"] = conditionToString(weatherCond);
+        weather["temperature"] = serialized(tempBuf);
+        weather["wind"] = serialized(windBuf);
+        weather["windDeg"] = weatherData.windDeg;
+        weather["windDir"] = windDirLabel(weatherData.windDeg);
+        if (weatherHasRain()) {
+            weather["rain"] = rainLevelLabel();
+        }
     }
 
-    json += '}';
+    String json;
+    serializeJsonPretty(doc, json);
     return json;
 }
 
@@ -287,9 +265,9 @@ void setupWebServer() {
         handleModePost(req);
     });
     webServer.on("/reconfigure", HTTP_POST, [](AsyncWebServerRequest* req) {
-        Serial.println("[Web] Reconfigure requested — clearing WiFi credentials");
-        wifiSetupResetCredentials();
+        Serial.println("[Web] Reconfigure requested — credentials will be cleared then restart");
         req->send(200, "application/json", "{}");
+        wifiResetPending = true;
         restartPending = true;
         restartAtMs = millis() + 500;
     });
@@ -392,16 +370,6 @@ void effectError() {
     FastLED.show();
 }
 
-// void effectAmbient() {
-//     static bool toggle = false;
-//     static uint32_t lastSwitch = 0;
-//     if (millis() - lastSwitch > 1000) {
-//         toggle = !toggle;
-//         lastSwitch = millis();
-//         fill_solid(leds, LED_COUNT, toggle ? CRGB::Red : CRGB::Blue);
-//         FastLED.show();
-//     }
-// }
 void effectAmbient() {
     uint8_t initialHue = millis() / 60;
     uint8_t deltaHue = 255 / LED_COUNT; 
@@ -803,6 +771,10 @@ void setup() {
 
 void loop() {
     if (restartPending && millis() >= restartAtMs) {
+        if (wifiResetPending) {
+            wifiSetupResetCredentials();
+            wifiResetPending = false;
+        }
         ESP.restart();
     }
 

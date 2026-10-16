@@ -31,15 +31,35 @@
     });
   }
 
+  function buttonClass(mode, name) {
+    return mode === name ? "active" : "";
+  }
+
   function renderState(data) {
-    var payload = Object.assign({}, data);
-    payload.weatherSection = "";
-    if (payload.showWeather) {
+    var weather = data.weather;
+    var payload = {
+      mode: data.mode || "",
+      lightClass: buttonClass(data.mode, "LIGHT"),
+      ambientClass: buttonClass(data.mode, "AMBIENT"),
+      forecastClass: buttonClass(data.mode, "FORECAST"),
+      weatherSection: "",
+    };
+
+    if (weather) {
+      payload.condition = weather.condition;
+      payload.temperature = weather.temperature;
+      payload.wind = weather.wind;
+      payload.windDeg = weather.windDeg;
+      payload.windDir = weather.windDir;
+      payload.rainSuffix = weather.rain ? " · " + weather.rain : "";
       payload.weatherSection = applyTemplate(weatherTpl, payload);
     }
+
     var html = applyTemplate(stateTpl, payload);
     var el = document.getElementById("state");
+
     el.outerHTML = html;
+
     if (typeof htmx !== "undefined") {
       htmx.process(document.getElementById("state"));
     }
@@ -74,9 +94,11 @@
 
   document.body.addEventListener("htmx:afterRequest", function (evt) {
     var path = evt.detail.pathInfo && evt.detail.pathInfo.requestPath;
+
     if (path !== "/mode" || !evt.detail.successful) {
       return;
     }
+
     try {
       renderState(JSON.parse(evt.detail.xhr.responseText));
     } catch (e) {
@@ -91,7 +113,6 @@
     var infoBtn = document.getElementById("info-btn");
     var modal = document.getElementById("info-modal");
     var closeBtn = document.getElementById("modal-close-btn");
-    // var demoBtn = document.getElementById("demo-btn");
     var reconfigureBtn = document.getElementById("reconfigure-btn");
 
     infoBtn.addEventListener("click", function () {
@@ -100,23 +121,6 @@
     closeBtn.addEventListener("click", function () {
       modal.hidden = true;
     });
-    // demoBtn.addEventListener("click", function () {
-    //   fetch("/mode", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    //     body: "set=TESTING",
-    //   })
-    //     .then(function (r) {
-    //       return r.json();
-    //     })
-    //     .then(function (data) {
-    //       modal.hidden = true;
-    //       renderState(data);
-    //     })
-    //     .catch(function (err) {
-    //       console.error("[UI]", err);
-    //     });
-    // });
     reconfigureBtn.addEventListener("click", function () {
       if (
         !confirm(

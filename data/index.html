@@ -18,19 +18,19 @@
   <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="./main.css" >
   <script src="./htmx.js"></script>
-  <!-- <script src="./app.js" defer></script> -->
+  <script src="./app.js" defer></script>
 </head>
 <body>
   <header>
     <h1>FORECASTER</h1>
     <button id="info-btn" type="button" aria-label="About">i</button>
   </header>
-<!-- 
-  <div id="state">
-    <div class="mode-name text-gradient">Loading...</div>
-  </div> -->
 
   <div id="state">
+    <div class="mode-name text-gradient">Loading...</div>
+  </div>
+
+  <!-- <div id="state">
     <div class="weather-info">
       <div class="weather-condition">Rainy</div>
       <div class="weather-temp text-gradient">25.4 °C</div>
@@ -44,7 +44,7 @@
       <button type="button" class="{{ambientClass}}" hx-post="/mode" hx-vals='{"set":"AMBIENT"}' hx-swap="none">AMBIENT</button>
       <button type="button" class="{{forecastClass}}" hx-post="/mode" hx-vals='{"set":"FORECAST"}' hx-swap="none">FORECAST</button>
     </div>
-  </div>
+  </div> -->
   
   <div id="info-modal" class="modal-overlay" hidden>
     <div class="modal-box">
@@ -52,7 +52,7 @@
       <p>Tim Cherniavski<br>&times;<br>varloc2000@gmail.com</p>
       <div class="buttons">
         <button type="button" id="reconfigure-btn">RECONFIGURE</button>
-        <button type="button" id="demo-btn" hx-post="/mode" hx-vals='{"set":"TESTING"}' hx-on::after-request="document.getElementById('info-modal').hidden = true">DEMO</button>
+        <button type="button" id="demo-btn" hx-post="/mode" hx-vals='{"set":"TESTING"}' hx-swap="none" hx-on::after-request="document.getElementById('info-modal').hidden = true">DEMO</button>
         <button type="button" id="modal-close-btn">Close</button>
       </div>
     </div>

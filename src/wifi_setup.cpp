@@ -62,5 +62,12 @@ bool wifiSetupConsumeReconfigured() {
 }
 
 void wifiSetupResetCredentials() {
+    // Must run from loop(), never from an AsyncWebServer callback:
+    // resetSettings() delay()s and writes the SDK config sector.
+    Serial.println("[WiFi] Erasing saved STA credentials");
     wm.resetSettings();
+    WiFi.persistent(true);
+    WiFi.disconnect(true, true);
+    WiFi.persistent(false);
+    ESP.eraseConfig();
 }

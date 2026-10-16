@@ -28,5 +28,7 @@ String wifiSetupGetApiKey();
 // Returns true once, right after the portal's Save button persisted new credentials.
 bool wifiSetupConsumeReconfigured();
 
-// Clears saved WiFi STA credentials so the next autoConnect() opens the config portal.
+// Clears saved WiFi STA credentials (SDK flash + WiFiManager) so the next
+// autoConnect() opens the config portal. Call from loop() only — not from an
+// AsyncWebServer handler (resetSettings() delay()s and erases flash).
 void wifiSetupResetCredentials();
