@@ -75,10 +75,15 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Attach the firmware to the release
+      - name: Create Release and Attach Firmware
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           ls -l dist/
-          gh release upload "$TAG" dist/*.tar.gz --clobber
+          
+          # This explicitly creates the official GitHub Release container for the tag
+          gh release create "$TAG" \
+            --title "Release $TAG" \
+            --notes "$TAG: firmware and LittleFS binary" \
+            dist/*.tar.gz
